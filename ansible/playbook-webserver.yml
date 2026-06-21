@@ -1,0 +1,228 @@
+---
+- name: Application Deployment - Ubuntu Web Server
+  hosts: webservers
+  become: true
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+
+  tasks:
+    # =========================================================================
+    # 1. CORE SYSTEM & APACHE LAYERS
+    # =========================================================================
+    - name: Update apt repository cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Install Apache Web Server package
+      ansible.builtin.apt:
+        name: apache2
+        state: present
+
+    - name: Verify Apache service is running and enabled on boot
+      ansible.builtin.systemd_service:
+        name: apache2
+        state: started
+        enabled: true
+
+    # =========================================================================
+    # 2. MICROSOFT SYSMON ENGINE DEPLOYMENT LAYER
+    # =========================================================================
+    - name: Download Microsoft official production repository descriptor
+      ansible.builtin.get_url:
+        url: https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb
+        dest: /tmp/packages-microsoft-prod.deb
+        mode: '0644'
+
+    - name: Register Microsoft package manager repository
+      ansible.builtin.apt:
+        deb: /tmp/packages-microsoft-prod.deb
+
+    - name: Install Sysmon for Linux and eBPF kernel dependencies
+      ansible.builtin.apt:
+        name:
+          - sysinternalsebpf
+          - sysmonforlinux
+        state: present
+        update_cache: true
+
+    - name: Build local configuration architecture directories
+      ansible.builtin.file:
+        path: /etc/sysmon
+        state: directory
+        mode: '0755'
+
+    - name: Deploy Golden Sysmon XML Filtering Rules Matrix
+      ansible.builtin.copy:
+        dest: /etc/sysmon/sysmon-config.xml
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          <Sysmon schemaversion="4.81">
+            <EventFiltering>
+              <ProcessCreate onmatch="exclude">
+                <Image condition="contains">/lib/systemd/</Image>
+                <Image condition="contains">/usr/lib/systemd/</Image>
+                <Image condition="is">/usr/sbin/cron</Image>
+                <Image condition="is">/usr/sbin/acpid</Image>
+              </ProcessCreate>
+              <NetworkConnect onmatch="exclude">
+                <DestinationIp condition="is">127.0.0.1</DestinationIp>
+                <DestinationIp condition="is">::1</DestinationIp>
+              </NetworkConnect>
+              <FileCreate onmatch="exclude">
+                <TargetFilename condition="contains">/var/log/</TargetFilename>
+                <TargetFilename condition="contains">/tmp/systemd-private-</TargetFilename>
+              </FileCreate>
+            </EventFiltering>
+          </Sysmon>
+
+    - name: Initialize Sysmon engine with local ruleset and accept EULA
+      ansible.builtin.command: sysmon -accepteula -i /etc/sysmon/sysmon-config.xml
+      failed_when: false
+      changed_when: true
+
+    - name: Verify Sysmon eBPF monitoring service is active and persistent
+      ansible.builtin.systemd:
+        name: sysmon
+        state: started
+        enabled: true
+
+    # =========================================================================
+    # 3. SURICATA NETWORK IDS LAYER
+    # =========================================================================
+    - name: Install Suricata intrusion detection package
+      ansible.builtin.apt:
+        name: suricata
+        state: present
+
+    - name: Surgically map the range subnets into the default HOME_NET parameter
+      ansible.builtin.lineinfile:
+        path: /etc/suricata/suricata.yaml
+        regexp: '^(\s+)HOME_NET:\s+"\[?192\.168\.0\.0/16\]?"'
+        line: '\1HOME_NET: "[10.10.10.0/24,81.196.12.0/24]"'
+        backrefs: true
+
+    - name: Surgically bind the packet capture engine to the private internal LAN interface
+      ansible.builtin.replace:
+        path: /etc/suricata/suricata.yaml
+        regexp: '- interface: eth0'
+        replace: '- interface: eth1' 
+
+    - name: Inject Custom Local Hunting Rules Signature Set
+      ansible.builtin.copy:
+        dest: /etc/suricata/rules/local.rules
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          alert tcp any any -> $HOME_NET any (msg:"LOCAL DEFENSE: Raw Layer 4 TCP Stealth Scan Detected"; flags:S; threshold:type threshold, track by_src, count 30, seconds 5; sid:9000001; rev:2;)
+
+    - name: Generate placeholder baseline system rule parameters file
+      ansible.builtin.copy:
+        dest: /etc/suricata/rules/suricata.rules
+        content: "# Baseline file"
+        force: false
+        mode: '0644'
+
+    - name: Start and enable Suricata real-time monitoring engine
+      ansible.builtin.systemd:
+        name: suricata
+        state: restarted
+        enabled: true
+
+    # =========================================================================
+    # 4. FILEBEAT INTEGRATION LAYER
+    # =========================================================================
+    - name: Download Elastic public GPG signing key
+      ansible.builtin.get_url:
+        url: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+        dest: /usr/share/keyrings/elasticsearch-keyring.asc
+        mode: '0644'
+
+    - name: Add official Elastic 8.x repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/elasticsearch-keyring.asc] https://artifacts.elastic.co/packages/8.x/apt stable main"
+        filename: elastic-8.x
+        state: present
+
+    - name: Install Filebeat package
+      ansible.builtin.apt:
+        name: filebeat
+        state: present
+
+    - name: Deploy Golden Filebeat Core Configuration with Integrated Sysmon Input
+      ansible.builtin.copy:
+        dest: /etc/filebeat/filebeat.yml
+        owner: root
+        group: root
+        mode: '0600'
+        content: |
+          filebeat.inputs:
+          - type: filestream
+            id: sysmon-linux-telemetry
+            enabled: true
+            paths:
+              - /var/log/syslog
+            include_lines: ['<Event>']
+
+          filebeat.config.modules:
+            path: ${path.config}/modules.d/*.yml
+            reload.enabled: false
+
+          setup.template.settings:
+            index.number_of_shards: 1
+
+          setup.kibana:
+            host: "10.10.10.20:5601"
+
+          output.elasticsearch:
+            hosts: ["10.10.10.20:9200"]
+            preset: balanced
+
+          processors:
+            - add_host_metadata:
+                when.not.contains.tags: forwarded
+            - add_cloud_metadata: ~
+            - add_docker_metadata: ~
+            - add_kubernetes_metadata: ~
+            - decode_xml_wineventlog:
+                when:
+                  contains:
+                    message: "<Event>"
+                field: message
+                target_field: ""
+
+    - name: Deploy Golden Apache Module Configuration
+      ansible.builtin.copy:
+        dest: /etc/filebeat/modules.d/apache.yml
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          - module: apache
+            access:
+              enabled: true
+              var.paths: ["/var/log/apache2/access.log*"]
+            error:
+              enabled: true
+              var.paths: ["/var/log/apache2/error.log*"]
+
+    - name: Deploy Golden Suricata Module Engine Configuration
+      ansible.builtin.copy:
+        dest: /etc/filebeat/modules.d/suricata.yml
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          - module: suricata
+            eve:
+              enabled: true
+              var.paths: ["/var/log/suricata/eve.json"]
+
+    - name: Force restart Filebeat to apply all updated agent configurations
+      ansible.builtin.systemd:
+        name: filebeat
+        state: restarted
+        enabled: true
