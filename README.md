@@ -6,8 +6,6 @@ This project provisions a fully automated, standalone cybersecurity range using 
 
 Rather than theoretical exercises, this range provides a brutal, realistic application of modern network topologies. It deploys a simulated public WAN interface facing an attacker, and an isolated private LAN where a target web server forwards high-fidelity telemetry to a dedicated SIEM.
 
-If you want to train at an elite level, you need an environment that mirrors the real world. This is your arsenal.
-
 ## Infrastructure Architecture & Topology
 
 The environment consists of three distinct virtual machines, logically separated into two network segments: a **Simulated WAN** and a **Private Monitoring LAN**.
