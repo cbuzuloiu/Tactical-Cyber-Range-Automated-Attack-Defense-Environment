@@ -14,10 +14,27 @@
         update_cache: true
         cache_valid_time: 3600
 
-    - name: Install Apache Web Server package
+    - name: Install Apache Web Server and PHP Engine
       ansible.builtin.apt:
-        name: apache2
+        name:
+          - apache2
+          - php
+          - libapache2-mod-php
         state: present
+
+    - name: Clear default Apache index.html placeholder
+      ansible.builtin.file:
+        path: /var/www/html/index.html
+        state: absent
+
+    - name: Deploy Apex Power Systems Web Application
+      ansible.builtin.copy:
+        src: src/
+        dest: /var/www/html/
+        owner: www-data
+        group: www-data
+        mode: '0644'
+      notify: Restart Apache
 
     - name: Verify Apache service is running and enabled on boot
       ansible.builtin.systemd_service:
@@ -226,3 +243,9 @@
         name: filebeat
         state: restarted
         enabled: true
+
+  handlers:
+    - name: Restart Apache
+      ansible.builtin.systemd:
+        name: apache2
+        state: restarted

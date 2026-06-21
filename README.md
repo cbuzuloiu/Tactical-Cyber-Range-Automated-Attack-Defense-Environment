@@ -6,6 +6,8 @@ This project provisions a fully automated, standalone cybersecurity range using 
 
 Rather than theoretical exercises, this range provides a brutal, realistic application of modern network topologies. It deploys a simulated public WAN interface facing an attacker, and an isolated private LAN where a target web server forwards high-fidelity telemetry to a dedicated SIEM.
 
+If you want to train at an elite level, you need an environment that mirrors the real world. This is your arsenal.
+
 ## Infrastructure Architecture & Topology
 
 The environment consists of three distinct virtual machines, logically separated into two network segments: a **Simulated WAN** and a **Private Monitoring LAN**.
@@ -35,7 +37,7 @@ The environment auto-deploys a pre-configured, battle-ready defensive stack on t
 - **Filebeat:** Operates on the web server, ingesting Sysmon XML events from syslog, Suricata `eve.json` alerts, and Apache access/error logs.
 - **Elasticsearch & Kibana:** Hosted entirely on the isolated `ubuntu-siem` node. Configured for high-performance memory mapping (`vm.max_map_count`) and exposed via plain HTTP for rapid access without wizard-setup friction.
 
-## Deployment Protocol
+## 🚀 Deployment Protocol
 
 ### Prerequisites
 
@@ -58,7 +60,7 @@ vagrant up
 ```
 2. Once the deployment finishes, the environment is live.
 
-## Access Points & Usage
+## 🎯 Access Points & Usage
 
 ### The SIEM Dashboard
 
