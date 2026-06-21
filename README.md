@@ -37,7 +37,7 @@ The environment auto-deploys a pre-configured, battle-ready defensive stack on t
 - **Filebeat:** Operates on the web server, ingesting Sysmon XML events from syslog, Suricata `eve.json` alerts, and Apache access/error logs.
 - **Elasticsearch & Kibana:** Hosted entirely on the isolated `ubuntu-siem` node. Configured for high-performance memory mapping (`vm.max_map_count`) and exposed via plain HTTP for rapid access without wizard-setup friction.
 
-## 🚀 Deployment Protocol
+## Deployment Protocol
 
 ### Prerequisites
 
@@ -60,7 +60,7 @@ vagrant up
 ```
 2. Once the deployment finishes, the environment is live.
 
-## 🎯 Access Points & Usage
+## Access Points & Usage
 
 ### The SIEM Dashboard
 
