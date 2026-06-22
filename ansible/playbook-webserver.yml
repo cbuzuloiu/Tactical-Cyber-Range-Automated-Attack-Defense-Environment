@@ -27,6 +27,14 @@
         path: /var/www/html/index.html
         state: absent
 
+    - name: Create Web Accessible Inbound Upload Storage Zone
+      ansible.builtin.file:
+        path: /var/www/html/uploads
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: '0755'
+
     - name: Deploy Apex Power Systems Web Application
       ansible.builtin.copy:
         src: src/
@@ -41,6 +49,17 @@
         name: apache2
         state: started
         enabled: true
+
+    - name: Deploy Lazy Engineering Sudo Misconfiguration (PrivEsc Target)
+      ansible.builtin.copy:
+        dest: /etc/sudoers.d/apex_web_diagnostics
+        owner: root
+        group: root
+        mode: '0440'
+        content: |
+          # APEX_PWR: Allow web service to archive system telemetry logs 
+          # Warning: Do not modify. Required for firmware_portal.php backup module.
+          www-data ALL=(ALL) NOPASSWD: /usr/bin/tar
 
     # =========================================================================
     # 2. MICROSOFT SYSMON ENGINE DEPLOYMENT LAYER
