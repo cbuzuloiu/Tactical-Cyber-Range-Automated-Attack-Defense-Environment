@@ -2,6 +2,10 @@
 // Core Routing Engine
 // Default to the 'our_company' page if no parameter is provided
 $page = isset($_GET['page']) ? $_GET['page'] : 'our_company';
+
+// Strict Whitelist Matrix
+// Explicitly define which pages are permitted to load within the master wrapper layout.
+$allowed_pages = ['our_company', 'portfolio', 'our_team', 'contact_us'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -27,12 +31,16 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'our_company';
 
     <main class="glass-container">
         <?php
-            // Security Note: Currently securely loading local files.
-            // This is where we can open the gates later if an LFI is desired.
-            $file = $page . '.php';
-            if(file_exists($file)) {
-                include($file);
+            // Check if the requested parameter exists within our strict whitelist array
+            if (in_array($page, $allowed_pages)) {
+                $file = $page . '.php';
+                if (file_exists($file)) {
+                    include($file);
+                } else {
+                    echo "<div class='error-state'><h2>Error 404</h2><p>Grid Sector Offline.</p></div>";
+                }
             } else {
+                // For safely handling non-whitelisted pages (e.g., index, login, or LFI attempts)
                 echo "<div class='error-state'><h2>Error 404</h2><p>Grid Sector Offline.</p></div>";
             }
         ?>
