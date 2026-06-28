@@ -137,7 +137,7 @@
       ansible.builtin.lineinfile:
         path: /etc/suricata/suricata.yaml
         regexp: '^(\s+)HOME_NET:\s+"\[?192\.168\.0\.0/16\]?"'
-        line: '\1HOME_NET: "[10.10.10.0/24,81.196.12.0/24]"'
+        line: '\1HOME_NET: "[10.10.10.0/24,192.0.2.0/24]"'
         backrefs: true
 
     - name: Surgically bind the packet capture engine to the private internal LAN interface

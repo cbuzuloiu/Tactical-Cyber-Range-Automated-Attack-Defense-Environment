@@ -18,7 +18,7 @@ Vagrant.configure("2") do |config|
 
     # Adapter 2: Simulated Internet WAN
     kali.vm.network "private_network", 
-      ip: "81.196.12.50", 
+      ip: "192.0.2.50",
       netmask: "255.255.255.0",
       virtualbox__intnet: "intnet_wan"
 
@@ -35,10 +35,10 @@ Vagrant.configure("2") do |config|
       # 1. Check if the NetworkManager profile already exists to prevent duplication
       if ! nmcli connection show "WAN-Static" >/dev/null 2>&1; then
         # 2. Bind the static IP to the eth1 card natively inside the automation loop
-        nmcli connection add type ethernet con-name WAN-Static ifname eth1 ip4 81.196.12.50/24
+        nmcli connection add type ethernet con-name WAN-Static ifname eth1 ip4 192.0.2.50/24
         nmcli connection modify WAN-Static ipv4.never-default yes
         nmcli connection up WAN-Static
-        echo "[IaC] Interface eth1 successfully locked onto 81.196.12.50/24"
+        echo "[IaC] Interface eth1 successfully locked onto 192.0.2.50/24"
       else
         echo "[IaC] WAN-Static configuration already active. Skipping setup."
       fi
@@ -54,7 +54,7 @@ Vagrant.configure("2") do |config|
 
     # Adapter 2: Simulated Internet WAN (Facing Kali)
     web.vm.network "private_network", 
-      ip: "81.196.12.100", 
+      ip: "192.0.2.100",
       netmask: "255.255.255.0",
       virtualbox__intnet: "intnet_wan"
 

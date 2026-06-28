@@ -12,13 +12,13 @@ The environment consists of three distinct virtual machines, logically separated
 
 |Hostname|Role|OS|Simulated WAN (eth1)|Private LAN (eth2)|
 |---|---|---|---|---|
-|**`kali-attacker`**|Offensive Node|Kali Linux Rolling|`81.196.12.50`|N/A|
-|**`ubuntu-webserver`**|Target / Forwarder|Ubuntu 24.04|`81.196.12.100`|`10.10.10.10`|
+|**`kali-attacker`**|Offensive Node|Kali Linux Rolling|`192.0.2.50`|N/A|
+|**`ubuntu-webserver`**|Target / Forwarder|Ubuntu 24.04|`192.0.2.100`|`10.10.10.10`|
 |**`ubuntu-siem`**|Log Collector / Analytics|Ubuntu 24.04|N/A|`10.10.10.20`|
 
 ### Network Flow Logic
 
-1. **The Attack Path:** The Kali Linux machine can only "see" the Ubuntu Web Server via the simulated public IP (`81.196.12.100`).
+1. **The Attack Path:** The Kali Linux machine can only "see" the Ubuntu Web Server via the simulated public IP (`192.0.2.100`).
 2. **The Defense Path:** The Web Server exists in a dual-homed state. Its network interfaces are set to promiscuous mode, allowing local security agents to sniff traffic from the WAN and silently forward telemetry via the private LAN (`10.10.10.0/24`) to the SIEM.
 
 ## Tactical Capabilities & Stack
@@ -76,7 +76,7 @@ vagrant ssh siem
 ```
 
 ### Strategic Scenarios to Execute
-- **Reconnaissance Detection:** Run Nmap stealth scans from `kali` to the `webserver` (`81.196.12.100`) and observe Suricata alerts populating in Kibana.
+- **Reconnaissance Detection:** Run Nmap stealth scans from `kali` to the `webserver` (`192.0.2.100`) and observe Suricata alerts populating in Kibana.
 - **Process Hunting:** Exploit a web vulnerability (or manually spawn a suspicious shell process on the web server) and track the execution tree via Sysmon telemetry in the SIEM.
 
 > **Disclaimer:** This range is designed strictly for educational purposes, security research, and authorized penetration testing practice. Do not utilize these configurations or tools on environments where you do not have explicit authorization.
@@ -103,7 +103,7 @@ Rather than relying on unpatched kernel exploits, this scenario models **human e
 ### Phase 2: Initial Access via Logic Flaw (Information Disclosure)
 
 - **Objective:** Bypassing the public perimeter to establish a session.
-- **Target Endpoint:** `http://81.196.12.100/login.php`
+- **Target Endpoint:** `http://192.0.2.100/login.php`
 - **Vulnerability Class:** Improper Error Handling / Verbose Authentication Responses (**CWE-204**).
 - **The Flaw:** The server-side code handles data verification using explicit execution pathways that return distinct messages. An incorrect username triggers `Invalid operator ID.`, while a valid username with an incorrect password triggers `Incorrect authentication key.`.
 - **Adversary Action:** Utilizing a network proxy (e.g., Burp Suite Intruder), the attacker runs a Sniper attack against the username field using the scraped team list. Because the response strings alter the final HTML layout size, the attacker filters by **Response Byte Length** to confirm which corporate accounts exist.
@@ -111,10 +111,10 @@ Rather than relying on unpatched kernel exploits, this scenario models **human e
 ### Phase 3: Execution & Persistence (Remote Code Execution)
 
 - **Objective:** Arbitrary command execution within the application container.
-- **Target Endpoint:** `http://81.196.12.100/firmware_portal.php`
+- **Target Endpoint:** `http://192.0.2.100/firmware_portal.php`
 - **Vulnerability Class:** Unrestricted Upload of File with Dangerous Type (**CWE-434**).
 - **The Flaw:** Once authenticated as a junior operator, the user gains access to an internal Substation Firmware Flash Utility. The PHP ingestion logic processes file transfers without performing file extension filtering, MIME-type validation, or magic-number verification. Uploaded artifacts are written directly into a web-accessible repository (`/uploads/`).
-- **Adversary Action:** The attacker uploads a custom script configured with runtime system execution utilities. By sending an HTTP GET request directly to the uploaded path (`http://81.196.12.100/uploads/artifact.php`), the server parses the server-side code, establishing an interactive, inbound remote shell session running under the low-privileged local web context: `www-data`.
+- **Adversary Action:** The attacker uploads a custom script configured with runtime system execution utilities. By sending an HTTP GET request directly to the uploaded path (`http://192.0.2.100/uploads/artifact.php`), the server parses the server-side code, establishing an interactive, inbound remote shell session running under the low-privileged local web context: `www-data`.
 ### Phase 4: Local Privilege Escalation (Living off the Land)
 
 - **Objective:** Total compromise of the underlying Linux host system.
