@@ -17,7 +17,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES["firmware_blob"])) {
 
     // VULNERABILITY ARCHITECTURE: Complete omission of validation mechanics.
     // The engine does not perform extension filtering (.php passes natively) or MIME-type inspection.
-    if (move_uploaded_file($_FILES["firmware_blob"]["tmp_name"], $target_path)) {
+    //
+    // PLACEMENT MECHANICS: We deliberately avoid move_uploaded_file() here. On this
+    // host the PHP upload tmp dir and the web root share one filesystem, so that call
+    // resolves to a rename() syscall, which relinks an existing inode rather than
+    // creating a new one -- and Sysmon-for-Linux FileCreate (Event ID 11) never fires.
+    // Reading the temp file and writing it out performs a real open(O_CREAT)+write(),
+    // so the destination inode is created by apache2 and Sysmon emits Event 11 with
+    // TargetFilename=/var/www/html/uploads/<artifact>.
+    //
+    // is_uploaded_file() is retained on purpose: it is the only security check that
+    // move_uploaded_file() bundled for us. Keeping it confines the weakness to the
+    // intended arbitrary-file-upload (no extension/MIME filtering) and prevents this
+    // from degrading into an LFI-to-arbitrary-write primitive via a forged tmp path.
+    $tmp_name = $_FILES["firmware_blob"]["tmp_name"];
+    if (is_uploaded_file($tmp_name) && file_put_contents($target_path, file_get_contents($tmp_name)) !== false) {
         $upload_message = "<div class='upload-success'>[SUCCESS] Matrix deployed to sector. Path: <a href='" . htmlspecialchars($target_path) . "' target='_blank'>/" . htmlspecialchars($target_path) . "</a></div>";
         
         // System log generation for EDR/Filebeat hunting

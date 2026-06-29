@@ -107,9 +107,19 @@
                 <DestinationIp condition="is">127.0.0.1</DestinationIp>
                 <DestinationIp condition="is">::1</DestinationIp>
               </NetworkConnect>
-              <FileCreate onmatch="exclude">
-                <TargetFilename condition="contains">/var/log/</TargetFilename>
-                <TargetFilename condition="contains">/tmp/systemd-private-</TargetFilename>
+              <!--
+                FileCreate (Event ID 11) is scoped to the web upload zone ONLY.
+                Rationale: the previous exclude-mode rule captured every file
+                creation host-wide (mostly /var/lib/php/sessions churn). That
+                high-volume stream starved Sysmon-for-Linux's FileCreate eBPF
+                channel and caused it to silently stall ~15 min after start
+                (events 1/3/5 kept flowing; 11 went dark). Restricting to the
+                uploads directory slashes event volume, keeps the channel alive,
+                and isolates the high-signal indicator we actually hunt: the
+                apache2/www-data process creating a file under the upload zone.
+              -->
+              <FileCreate onmatch="include">
+                <TargetFilename condition="contains">/var/www/html/uploads/</TargetFilename>
               </FileCreate>
             </EventFiltering>
           </Sysmon>
