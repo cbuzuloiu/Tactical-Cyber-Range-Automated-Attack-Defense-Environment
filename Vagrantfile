@@ -26,6 +26,13 @@ Vagrant.configure("2") do |config|
       vb.name = "V2_Kali_Attacker"
       vb.memory = 4096
       vb.cpus = 2
+      # Show the GUI window so there is a desktop to share the clipboard with.
+      # (Clipboard sharing does not function in headless mode.)
+      vb.gui = true
+      # Enable bidirectional host<->guest clipboard and drag-and-drop.
+      # Relies on the Guest Additions / VBoxClient shipped in the Kali box.
+      vb.customize ["modifyvm", :id, "--clipboard-mode", "bidirectional"]
+      vb.customize ["modifyvm", :id, "--drag-and-drop", "bidirectional"]
     end
     # --- INLINE IAC PROVISIONER ---
     # This script fires automatically on the very first boot sequence

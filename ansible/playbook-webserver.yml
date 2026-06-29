@@ -136,7 +136,10 @@
     - name: Surgically map the range subnets into the default HOME_NET parameter
       ansible.builtin.lineinfile:
         path: /etc/suricata/suricata.yaml
-        regexp: '^(\s+)HOME_NET:\s+"\[?192\.168\.0\.0/16\]?"'
+        # Match the single active (uncommented) HOME_NET line regardless of its
+        # default value. The leading \s+ before HOME_NET excludes the commented
+        # "#HOME_NET" variants, so only the live setting is rewritten.
+        regexp: '^(\s+)HOME_NET:\s+".*"\s*$'
         line: '\1HOME_NET: "[10.10.10.0/24,192.0.2.0/24]"'
         backrefs: true
 
@@ -155,12 +158,32 @@
         content: |
           alert tcp any any -> $HOME_NET any (msg:"LOCAL DEFENSE: Raw Layer 4 TCP Stealth Scan Detected"; flags:S; threshold:type threshold, track by_src, count 30, seconds 5; sid:9000001; rev:2;)
 
+    - name: Register the custom local ruleset in the Suricata rule-files manifest
+      ansible.builtin.lineinfile:
+        path: /etc/suricata/suricata.yaml
+        insertafter: '^rule-files:'
+        line: '  - /etc/suricata/rules/local.rules'
+        firstmatch: true
+
+    - name: Ensure the Suricata default rule path directory exists
+      ansible.builtin.file:
+        path: /var/lib/suricata/rules
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
     - name: Generate placeholder baseline system rule parameters file
       ansible.builtin.copy:
-        dest: /etc/suricata/rules/suricata.rules
+        dest: /var/lib/suricata/rules/suricata.rules
         content: "# Baseline file"
         force: false
         mode: '0644'
+
+    - name: Validate Suricata configuration and ruleset before activation
+      ansible.builtin.command:
+        cmd: suricata -T -c /etc/suricata/suricata.yaml -v
+      changed_when: false
 
     - name: Start and enable Suricata real-time monitoring engine
       ansible.builtin.systemd:
